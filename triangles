@@ -1,0 +1,66 @@
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2 resolution;
+uniform vec2 cameraAddent;
+uniform mat2 cameraOrientation;
+uniform samplerExternalOES cameraBack;
+
+uniform int pointerCount;
+uniform vec2 pointers[1];
+
+vec3 make_kernel(vec2 uv, bool bl){
+	float w = 1.0 / resolution.x;
+	float h = 1.0 / resolution.y;
+
+	vec2 uvs[3];
+	if (bl == true){
+		uvs[0] = uv + vec2(w, 0);
+		uvs[1] = uv + vec2(w, h);
+		uvs[2] = uv;
+	} else {
+		uvs[0] = uv - vec2(w, 0);
+		uvs[1] = uv - vec2(w, h);
+		uvs[2] = uv;
+	}
+
+	vec2 avg = (uvs[0] + uvs[1] + uvs[2]) / 3.0;
+
+	return texture2D(cameraBack,cameraAddent+avg*cameraOrientation).rgb;
+}
+
+void main(void) {
+	float pixelSize = 32.0;
+
+	float mx = max(resolution.x, resolution.y);
+	vec2 uv  = gl_FragCoord.xy / mx;
+	vec3 color;
+	bool touch;
+
+	if (pointerCount >= 1){
+		for (int n = 0; n < pointerCount; ++n) {
+			if (sin(1.57 - distance(uv, pointers[n].xy + vec2(.5, .5) * resolution.xy / mx) * 8.0) < .1){
+				color = texture2D(cameraBack,cameraAddent+uv*cameraOrientation).rgb;
+				touch = true;
+			}
+		}
+	}
+	if (!touch) {
+		vec2 low = floor(gl_FragCoord.xy/pixelSize)*pixelSize / mx;
+		vec2 high = ceil(gl_FragCoord.xy/pixelSize)*pixelSize / mx;
+		bool bl = true;
+		if (gl_FragCoord.y / mx <= high.y - (gl_FragCoord.x / mx - low.x))
+			uv = low;
+		else {
+			uv = high;
+			bl = false;
+		}
+
+		color = make_kernel(uv, bl);
+	}
+
+	gl_FragColor = vec4(color, 1.0);
+}

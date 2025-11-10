@@ -1,0 +1,54 @@
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2 resolution;
+uniform vec2 cameraAddent;
+uniform mat2 cameraOrientation;
+uniform samplerExternalOES cameraBack;
+
+uniform int pointerCount;
+uniform vec2 pointers[1];
+
+vec2 find_bound(vec2 dir){
+	float w = 1.0 / resolution.x;
+	float h = 1.0 / resolution.y;
+
+	float m = dir.y / dir.x;
+	if (dir.x >= 0.0 && dir.y >= 0.0) {
+		if (abs(m) > 1.0) return vec2(.5 / m, .5);
+		else return vec2(.5, .5 * m);
+	} else if (dir.x >= 0.0 && dir.y < 0.0) {
+		if (abs(m) > 1.0) return vec2( - .5 / m, -.5);
+		else return vec2(.5, .5 * m);
+	} else if (dir.x < 0.0 && dir.y >= 0.0) {
+		if (abs(m) > 1.0) return vec2(.5 / m, .5);
+		else return vec2(-.5, -.5 * m);
+	} else if (dir.x < 0.0 && dir.y < 0.0) {
+		if (abs(m) > 1.0) return vec2(-.5 / m, -.5);
+		else return vec2(-.5, -.5 * m);
+	}
+}
+
+void main(void) {
+	float mx = max(resolution.x, resolution.y);
+
+	float circleSize = .15;
+
+	vec2 uv  = gl_FragCoord.xy  / resolution.xy;
+	vec2 center = vec2(.5, .5);
+	vec2 dist = (uv - center) * resolution.xy / mx;
+	vec3 color;
+
+	if (length(dist) <= circleSize) {
+		vec2 dir = normalize(dist);
+		vec2 bound = find_bound(dir);
+		vec2 warped = center + min((length(dist*dist*4.0) / circleSize), 1.0) * bound;
+		color = texture2D(cameraBack, cameraAddent + warped * cameraOrientation).rgb;
+	} else {
+		color = texture2D(cameraBack, cameraAddent + uv * cameraOrientation).rbg;
+	}
+	gl_FragColor = vec4(color, 1.0);
+}

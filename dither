@@ -1,0 +1,74 @@
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2 resolution;
+uniform vec2 cameraAddent;
+uniform mat2 cameraOrientation;
+uniform samplerExternalOES cameraBack;
+
+float band1 = 0.5;
+float band2 = 0.7;
+float band3 = 0.8;
+float band4 = 0.9;
+float blurAmount = 5.;
+float pixelSize = 8.;
+
+vec3 blurredCam(vec2 uv){
+  vec2 uvs[8];
+  uvs[0] = vec2(1./resolution.x,0.);
+  uvs[1] = vec2(-1./resolution.x,0.);
+  uvs[2] = vec2(0.,1./resolution.y);
+  uvs[3] = vec2(0.,-1./resolution.y);
+  uvs[4] = vec2(1./resolution.x,1./resolution.y);
+  uvs[5] = vec2(-1./resolution.x,1./resolution.y);
+  uvs[6] = vec2(1./resolution.x,-1./resolution.y);
+  uvs[7] = vec2(-1./resolution.x,-1./resolution.y);
+  vec3 color = texture2D(cameraBack,cameraAddent+uv*cameraOrientation).rgb;
+  for (int i=0;i<int(blurAmount*8.);i++){
+    color += texture2D(cameraBack,cameraAddent+clamp(uv+3.*uvs[int(mod(float(i),8.))]*float(i/8),0.,1.)*cameraOrientation).rgb;
+  }
+  color /= blurAmount*8. + 1.;
+  return color;
+}
+
+void dither3(){
+  gl_FragColor = vec4(1.,1.,1.,1.);
+  vec2 pixelCoord = floor(gl_FragCoord.xy/pixelSize);
+  if(mod(pixelCoord.x,2.)==0. && mod(pixelCoord.y,2.)==0.){
+    gl_FragColor = vec4(0.,0.,0.,0.);
+  }
+}
+void dither2(){
+  gl_FragColor = vec4(1.,1.,1.,1.);
+  vec2 pixelCoord = floor(gl_FragCoord.xy/pixelSize);
+  if(mod(pixelCoord.y+pixelCoord.x,2.)==0.){
+    gl_FragColor = vec4(0.,0.,0.,0.);
+  }
+}
+void dither1(){
+  gl_FragColor = vec4(0.,0.,0.,0.);
+  vec2 pixelCoord = floor(gl_FragCoord.xy/pixelSize);
+  if(mod(pixelCoord.x,2.)==0. && mod(pixelCoord.y,2.)==0.){
+    gl_FragColor = vec4(1.,1.,1.,1.);
+  }
+}
+
+void main(void) {
+  vec2 uv = floor(gl_FragCoord.xy/pixelSize)*pixelSize / resolution.xy;
+  vec3 color = blurredCam(uv);
+  if (length(color)>band4*pow(3.,0.5)){
+    gl_FragColor = vec4(1.,1.,1.,1.);
+  }
+  else if(length(color)>band3*pow(3.,0.5)){
+    dither3();
+  }
+  else if(length(color)>band2*pow(3.,0.5)){
+    dither2();
+  }
+  else if(length(color)>band1*pow(3.,0.5)){
+    dither1();
+  }
+}
